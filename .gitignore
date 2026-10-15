@@ -1,0 +1,23 @@
+# Python
+.venv/
+**/__pycache__/
+*.py[cod]
+PhotoBlogServer/.venv/
+PhotoBlogServer/db.sqlite3
+PhotoBlogServer/.coverage
+PhotoBlogServer/htmlcov/
+PhotoBlogServer/staticfiles/
+PhotoBlogServer/media/images/20*/
+PhotoBlogServer/.env
+
+# Android Studio
+PhotoViewer/.gradle/
+PhotoViewer/.idea/
+PhotoViewer/**/build/
+PhotoViewer/local.properties
+*.iml
+
+# IDE and OS
+.vscode/
+Thumbs.db
+.DS_Store
