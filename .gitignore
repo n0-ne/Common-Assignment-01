@@ -21,3 +21,9 @@ PhotoViewer/local.properties
 .vscode/
 Thumbs.db
 .DS_Store
+
+
+
+PhotoBlogServer/socket_test/request/
+~$*.docx
+~WRL*.tmp

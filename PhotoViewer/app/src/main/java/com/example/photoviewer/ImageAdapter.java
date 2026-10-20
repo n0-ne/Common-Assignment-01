@@ -5,6 +5,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
@@ -14,10 +15,22 @@ import java.util.List;
 public class ImageAdapter
         extends RecyclerView.Adapter<ImageAdapter.ImageViewHolder> {
 
-    private final List<Bitmap> imageList;
+    public interface OnImageClickListener {
+        void onImageClick(PostItem item);
+    }
 
-    public ImageAdapter(List<Bitmap> imageList) {
-        this.imageList = imageList;
+    private final List<PostItem> postList;
+    private final boolean gridMode;
+    private final OnImageClickListener clickListener;
+
+    public ImageAdapter(
+            List<PostItem> postList,
+            boolean gridMode,
+            OnImageClickListener clickListener
+    ) {
+        this.postList = postList;
+        this.gridMode = gridMode;
+        this.clickListener = clickListener;
     }
 
     @NonNull
@@ -38,23 +51,38 @@ public class ImageAdapter
             @NonNull ImageViewHolder holder,
             int position
     ) {
-        Bitmap bitmap = imageList.get(position);
-        holder.imageView.setImageBitmap(bitmap);
+        PostItem item = postList.get(position);
+        holder.imageView.setImageBitmap(item.getBitmap());
+        holder.titleView.setText(item.getTitle());
+
+        int heightDp = gridMode ? 140 : 200;
+        float density = holder.itemView.getResources()
+                .getDisplayMetrics().density;
+        ViewGroup.LayoutParams params =
+                holder.imageView.getLayoutParams();
+        params.height = Math.round(heightDp * density);
+        holder.imageView.setLayoutParams(params);
+
+        holder.itemView.setOnClickListener(
+                view -> clickListener.onImageClick(item)
+        );
     }
 
     @Override
     public int getItemCount() {
-        return imageList.size();
+        return postList.size();
     }
 
     public static class ImageViewHolder
             extends RecyclerView.ViewHolder {
 
         final ImageView imageView;
+        final TextView titleView;
 
         public ImageViewHolder(@NonNull View itemView) {
             super(itemView);
             imageView = itemView.findViewById(R.id.imageViewItem);
+            titleView = itemView.findViewById(R.id.textViewTitle);
         }
     }
 }

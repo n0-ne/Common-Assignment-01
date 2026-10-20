@@ -82,3 +82,21 @@ class PostAPITest(APITestCase):
         self.assertTrue(
             Post.objects.filter(title=payload["title"]).exists()
         )
+
+    def test_filter_posts_by_title_query(self):
+        Post.objects.create(
+            author=self.user,
+            title="검색 대상 은하 이미지",
+            text="제목 검색 API 자동 테스트",
+            published_date=timezone.now(),
+        )
+
+        response = self.client.get(
+            self.list_url,
+            {"q": "은하"},
+            HTTP_ACCEPT="application/json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["title"], "검색 대상 은하 이미지")

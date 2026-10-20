@@ -48,3 +48,12 @@ def js_test(request):
 class IntruderImage(viewsets.ModelViewSet):
     queryset = Post.objects.all()
     serializer_class = PostSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        query = self.request.query_params.get('q', '').strip()
+
+        if query:
+            queryset = queryset.filter(title__icontains=query)
+
+        return queryset.order_by('-published_date', '-created_date')

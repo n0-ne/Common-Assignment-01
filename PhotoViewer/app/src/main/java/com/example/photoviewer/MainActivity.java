@@ -6,13 +6,21 @@ import androidx.core.view.WindowInsetsCompat;
 
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Color;
+import android.app.Dialog;
+import android.content.SharedPreferences;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.view.Gravity;
 import android.view.View;
+import android.view.ViewGroup;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.app.AppCompatDelegate;
+import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -50,9 +58,19 @@ import java.util.Locale;
 public class MainActivity extends AppCompatActivity {
 
     TextView textView;
+    RecyclerView recyclerView;
+    EditText searchInput;
+    Button viewModeButton;
+    Button themeButton;
+
+    final List<PostItem> allPosts = new ArrayList<>();
+    List<PostItem> visiblePosts = new ArrayList<>();
+    boolean gridMode;
+    boolean darkMode;
+    SharedPreferences viewerPreferences;
 
     // Android 에뮬레이터에서 10.0.2.2는 PC의 localhost를 의미한다.
-    String site_url = "http://10.0.2.2:8000";
+    String site_url = "https://dbrwogud46.pythonanywhere.com";
 
     JSONObject post_json;
     String imageUrl = null;
@@ -79,6 +97,20 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        viewerPreferences = getSharedPreferences(
+                "photo_viewer_preferences",
+                MODE_PRIVATE
+        );
+        darkMode = viewerPreferences.getBoolean(
+                "dark_mode",
+                false
+        );
+        AppCompatDelegate.setDefaultNightMode(
+                darkMode
+                        ? AppCompatDelegate.MODE_NIGHT_YES
+                        : AppCompatDelegate.MODE_NIGHT_NO
+        );
+
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         // 상태표시줄 겹침 수정
@@ -101,6 +133,17 @@ public class MainActivity extends AppCompatActivity {
         );
 
         textView = findViewById(R.id.textView);
+        recyclerView = findViewById(R.id.recyclerView);
+        searchInput = findViewById(R.id.edit_search);
+        viewModeButton = findViewById(R.id.btn_view_mode);
+        themeButton = findViewById(R.id.btn_theme);
+
+        gridMode = viewerPreferences.getBoolean(
+                "grid_mode",
+                false
+        );
+        updateFeatureButtons();
+        updateRecyclerView();
     }
 
     public void onClickDownload(View v) {
@@ -209,12 +252,132 @@ public class MainActivity extends AppCompatActivity {
         dialog.show();
     }
 
+    public void onClickSearch(View v) {
+        String query = searchInput.getText()
+                .toString()
+                .trim()
+                .toLowerCase(Locale.getDefault());
+
+        visiblePosts = new ArrayList<>();
+
+        for (PostItem item : allPosts) {
+            if (query.isEmpty()
+                    || item.getTitle()
+                    .toLowerCase(Locale.getDefault())
+                    .contains(query)) {
+                visiblePosts.add(item);
+            }
+        }
+
+        updateRecyclerView();
+
+        if (query.isEmpty()) {
+            textView.setText(
+                    "전체 게시글: " + visiblePosts.size() + "개"
+            );
+        } else {
+            textView.setText(
+                    "제목 검색 결과: " + visiblePosts.size() + "개"
+            );
+        }
+    }
+
+    public void onClickViewMode(View v) {
+        gridMode = !gridMode;
+        viewerPreferences.edit()
+                .putBoolean("grid_mode", gridMode)
+                .apply();
+        updateFeatureButtons();
+        updateRecyclerView();
+    }
+
+    public void onClickTheme(View v) {
+        darkMode = !darkMode;
+        viewerPreferences.edit()
+                .putBoolean("dark_mode", darkMode)
+                .apply();
+
+        AppCompatDelegate.setDefaultNightMode(
+                darkMode
+                        ? AppCompatDelegate.MODE_NIGHT_YES
+                        : AppCompatDelegate.MODE_NIGHT_NO
+        );
+    }
+
+    private void updateFeatureButtons() {
+        viewModeButton.setText(
+                gridMode ? "목록 보기" : "격자 보기"
+        );
+        themeButton.setText(
+                darkMode ? "라이트 모드" : "다크 모드"
+        );
+    }
+
+    private void updateRecyclerView() {
+        recyclerView.setLayoutManager(
+                gridMode
+                        ? new GridLayoutManager(this, 2)
+                        : new LinearLayoutManager(this)
+        );
+        recyclerView.setAdapter(
+                new ImageAdapter(
+                        visiblePosts,
+                        gridMode,
+                        this::showFullScreenImage
+                )
+        );
+    }
+
+    private void showFullScreenImage(PostItem item) {
+        Dialog dialog = new Dialog(
+                this,
+                android.R.style.Theme_DeviceDefault_NoActionBar_Fullscreen
+        );
+
+        LinearLayout container = new LinearLayout(this);
+        container.setOrientation(LinearLayout.VERTICAL);
+        container.setGravity(Gravity.CENTER);
+        container.setBackgroundColor(Color.BLACK);
+
+        TextView title = new TextView(this);
+        title.setText(item.getTitle());
+        title.setTextColor(Color.WHITE);
+        title.setTextSize(18);
+        title.setGravity(Gravity.CENTER);
+        title.setPadding(16, 24, 16, 16);
+
+        ImageView image = new ImageView(this);
+        image.setImageBitmap(item.getBitmap());
+        image.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        image.setContentDescription("전체 화면 이미지");
+
+        container.addView(
+                title,
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                )
+        );
+        container.addView(
+                image,
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        0,
+                        1
+                )
+        );
+
+        image.setOnClickListener(view -> dialog.dismiss());
+        dialog.setContentView(container);
+        dialog.show();
+    }
+
     private class CloadImage
-            extends AsyncTask<String, Integer, List<Bitmap>> {
+            extends AsyncTask<String, Integer, List<PostItem>> {
 
         @Override
-        protected List<Bitmap> doInBackground(String... urls) {
-            List<Bitmap> bitmapList = new ArrayList<>();
+        protected List<PostItem> doInBackground(String... urls) {
+            List<PostItem> postItems = new ArrayList<>();
 
             try {
                 String apiUrl = urls[0];
@@ -259,6 +422,10 @@ public class MainActivity extends AppCompatActivity {
                     for (int i = 0; i < aryJson.length(); i++) {
                         post_json = aryJson.getJSONObject(i);
                         imageUrl = post_json.getString("image");
+                        String title = post_json.optString(
+                                "title",
+                                "제목 없음"
+                        );
 
                         if (!imageUrl.equals("")
                                 && !imageUrl.equals("null")) {
@@ -277,7 +444,9 @@ public class MainActivity extends AppCompatActivity {
                                     BitmapFactory.decodeStream(imgStream);
 
                             if (imageBitmap != null) {
-                                bitmapList.add(imageBitmap);
+                                postItems.add(
+                                        new PostItem(title, imageBitmap)
+                                );
                             }
 
                             imgStream.close();
@@ -292,27 +461,26 @@ public class MainActivity extends AppCompatActivity {
                 e.printStackTrace();
             }
 
-            return bitmapList;
+            return postItems;
         }
 
         @Override
-        protected void onPostExecute(List<Bitmap> images) {
-            if (images.isEmpty()) {
+        protected void onPostExecute(List<PostItem> posts) {
+            allPosts.clear();
+            allPosts.addAll(posts);
+            visiblePosts = new ArrayList<>(allPosts);
+
+            if (posts.isEmpty()) {
                 textView.setText("불러올 이미지가 없습니다.");
             } else {
-                textView.setText("이미지 로드 성공!");
-
-                RecyclerView recyclerView =
-                        findViewById(R.id.recyclerView);
-
-                ImageAdapter adapter =
-                        new ImageAdapter(images);
-
-                recyclerView.setLayoutManager(
-                        new LinearLayoutManager(MainActivity.this)
+                textView.setText(
+                        "이미지 로드 성공! 전체 게시글: "
+                                + posts.size()
+                                + "개"
                 );
-                recyclerView.setAdapter(adapter);
             }
+
+            updateRecyclerView();
         }
     }
 
